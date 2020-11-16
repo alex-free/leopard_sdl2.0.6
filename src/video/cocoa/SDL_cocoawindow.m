@@ -1730,6 +1730,26 @@ Cocoa_ShowWindow(_THIS, SDL_Window * window)
 }
 #endif
 
+static NSWindow *
+Cocoa_RebuildWindow(SDL_WindowData * data, NSWindow * nswindow, unsigned style)
+{
+    if (!data->created) {
+        /* Don't mess with other people's windows... */
+        return nswindow;
+    }
+
+    [data->listener close];
+    data->nswindow = [[SDLWindow alloc] initWithContentRect:[[nswindow contentView] frame] styleMask:style backing:NSBackingStoreBuffered defer:NO screen:[nswindow screen]];
+    [data->nswindow setContentView:[nswindow contentView]];
+    /* See comment in SetupWindowData. */
+    [data->nswindow setOneShot:NO];
+    [data->listener listen:data];
+
+    [nswindow close];
+
+    return data->nswindow;
+}
+
 void
 Cocoa_HideWindow(_THIS, SDL_Window * window)
 #if MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
@@ -1929,8 +1949,13 @@ Cocoa_SetWindowFullscreen(_THIS, SDL_Window * window, SDL_VideoDisplay * display
             rect.origin.y += (screenRect.size.height - rect.size.height);
         }
 
-        if ([nswindow respondsToSelector:@selector(setStyleMask:)]) {
-        [nswindow setStyleMask:NSWindowStyleMaskBorderless];
+//        if ([nswindow respondsToSelector:@selector(setStyleMask:)]) {
+//        [nswindow setStyleMask:NSWindowStyleMaskBorderless];
+//        }
+ if ([nswindow respondsToSelector: @selector(setStyleMask:)]) {
+            [nswindow performSelector: @selector(setStyleMask:) withObject: (id)NSBorderlessWindowMask];
+        } else {
+            nswindow = Cocoa_RebuildWindow(data, nswindow, NSBorderlessWindowMask);
         }
     } else {
         rect.origin.x = window->windowed.x;
